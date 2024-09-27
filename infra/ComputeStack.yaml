@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Capital One Compute Resources Stack"
+
+Parameters:
+
+  KeyName:
+    Type: String
+
+  ImageId:
+    Type: String
+
+  VPCId:
+    Type: String
+
+  PublicSubnet1:
+    Type: String
+
+  PublicSubnet2:
+    Type: String
+
+  EC2SecurityGroupLoomi:
+    Type: String
+
+  TargetGroupLoomi:
+    Type: String
+
+  EC2InstanceProfileArn:
+    Type: String
+  
+
+Resources:
+
+  LaunchTemplateLoomi:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: Loomiproject
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn: !Ref EC2InstanceProfileArn
+        ImageId: !Ref ImageId
+        InstanceType: t3.micro
+        SecurityGroupIds:
+         - !Ref EC2SecurityGroupLoomi
+        KeyName: !Ref KeyName
+        UserData: !Base64 |
+            #!/bin/bash
+            sudo dpkg-reconfigure debconf --frontend=noninteractive
+            export DEBIAN_FRONTEND=noninteractive
+            sudo add-apt-repository universe
+            sudo apt update && apt upgrade -y
+            sudo snap install amazon-ssm-agent --classic
+            sudo apt-get install -y apache2
+            sudo hostnamectl set-hostname loomi
+            sudo apt  install awscli -y
+        
+            # AWSRegion=$(curl http://169.254.169.254/latest/meta-data/placement/region)  
+            # AuroraClusterIdentifier=$(aws rds describe-db-clusters --query 'DBClusters[*].DBClusterIdentifier' --output text --region $AWSRegion)
+            # AuroraInstanceIdentifier=$(aws rds describe-db-clusters --db-cluster-identifier $AuroraClusterIdentifier --query 'DBClusters[0].DBClusterMembers[*].DBInstanceIdentifier' --output text --region $AWSRegion)
+            # AuroraEndpoint=$(aws rds describe-db-instances --db-instance-identifier $AuroraInstanceIdentifier --query 'DBInstances[0].Endpoint' --output text --region $AWSRegion | cut -f1)
+            # User="admin"
+            # Passwd="UjTDtdeywOHS35eft0W6"
+            # sudo sed -i "s|vault-perf-24-1.cvi58tgaxlrn.us-east-1.rds.amazonaws.com|$AuroraEndpoint|g" /home/ubuntu/downloads/ARVault.properties
+            # sudo sed -i "s|vault-perf|capitalone-dev|g" /home/ubuntu/downloads/ARVault.properties
+            # sudo apt-get install -y mysql-client-core-8.0
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: "Loomiproject"
+
+  AutoScalingGroupCapOne:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: 
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplateLoomi
+        Version: !GetAtt LaunchTemplateLoomi.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 1
+      DesiredCapacity: 1
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      TargetGroupARNs:
+        - !Ref TargetGroupLoomi
+
+# Outputs:
+
+#   # InstanceId:
+#   #   Value: !GetAtt LaunchTemplateLoomi.InstanceId
+#   #   Export:
+#   #     Name: InstanceId

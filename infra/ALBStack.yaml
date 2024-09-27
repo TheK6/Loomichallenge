@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "ALB Stack"
+
+Parameters:
+
+  VPCId:
+    Type: String
+
+  PublicSubnet1:
+    Type: String
+
+  PublicSubnet2:
+    Type: String
+
+  ALBSecurityGroupLoomi:
+    Type: String
+
+  # SSLCertificateArn:
+  #   Type: String
+  #   Description: "The ARN of the SSL certificate from ACM."
+
+Resources:
+
+  TargetGroupLoomi:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: "loomitg"
+      HealthCheckEnabled: true
+      HealthCheckPath: /login
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 5
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: "200"
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VPCId 
+
+  ALBLoomi:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref ALBSecurityGroupLoomi
+      Scheme: internet-facing
+
+  ALBListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ALBLoomi
+      Protocol: HTTP
+      Port: 80
+      DefaultActions:
+          Type: forward
+          ForwardConfig:
+              TargetGroups: 
+                - TargetGroupArn: !Ref TargetGroupLoomi
+
+Outputs:
+
+  ALBLoomi:
+    Value: !Ref ALBLoomi
+    Export:
+      Name: ALBLoomi
+
+  TargetGroupLoomi:
+    Value: !Ref TargetGroupLoomi
+    Export:
+      Name: TargetGroupLoomi
+
+  LBDNSName:
+    Value: !GetAtt ALBLoomi.DNSName
+    Export:
+      Name: LBDNSName
+
+  LBHostedZoneID:
+    Value: !GetAtt ALBLoomi.CanonicalHostedZoneID
+    Export:
+      Name: LBHostedZoneID
