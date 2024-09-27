@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Root Stack for Capital One Architecture"
+
+Parameters:
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: Loomikp
+
+  ImageId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/jammy/stable/current/amd64/hvm/ebs-gp2/ami-id
+    Description: The latest Ubuntu 22.04 LTS AMI Id
+   
+Resources:
+  RoleStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://loomiprojectja.s3.us-east-2.amazonaws.com/infra/RoleStack.yaml
+
+  NetworkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://loomiprojectja.s3.us-east-2.amazonaws.com/infra/NetworkStack.yaml
+
+  SecurityGroupStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://loomiprojectja.s3.us-east-2.amazonaws.com/infra/SecurityGroupStack.yaml
+      Parameters:
+        VPCId: !GetAtt NetworkStack.Outputs.VpcLoomi
+
+  ALBStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://loomiprojectja.s3.us-east-2.amazonaws.com/infra/ALBStack.yaml
+      Parameters:
+        VPCId:  !GetAtt NetworkStack.Outputs.VpcLoomi
+        PublicSubnet1: !GetAtt NetworkStack.Outputs.PublicSubnet1
+        PublicSubnet2: !GetAtt NetworkStack.Outputs.PublicSubnet2
+        ALBSecurityGroupLoomi: !GetAtt SecurityGroupStack.Outputs.ALBSecurityGroupLoomi
+        # SSLCertificateArn: !Ref SSLCertificateArn
+
+  RDSStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: NetworkStack
+    Properties:
+      TemplateURL: https://loomiprojectja.s3.us-east-2.amazonaws.com/infra/RDSStack.yaml
+      Parameters:
+        PrivateSubnet1: !GetAtt NetworkStack.Outputs.PrivateSubnet1
+        PrivateSubnet2: !GetAtt NetworkStack.Outputs.PrivateSubnet2
+        RDSSecurityGroupLoomi: !GetAtt SecurityGroupStack.Outputs.RDSSecurityGroupLoomi
+
+  ComputeStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: SecurityGroupStack
+    Properties:
+      TemplateURL: https://loomiprojectja.s3.us-east-2.amazonaws.com/infra/ComputeStack.yaml
+      Parameters:
+        KeyName: !Ref KeyName
+        ImageId: !Ref ImageId
+        VPCId:  !GetAtt NetworkStack.Outputs.VpcLoomi
+        PublicSubnet1: !GetAtt NetworkStack.Outputs.PublicSubnet1
+        PublicSubnet2: !GetAtt NetworkStack.Outputs.PublicSubnet2
+        EC2SecurityGroupLoomi: !GetAtt SecurityGroupStack.Outputs.EC2SecurityGroupLoomi
+        TargetGroupLoomi: !GetAtt ALBStack.Outputs.TargetGroupLoomi
+        EC2InstanceProfileArn: !GetAtt RoleStack.Outputs.EC2InstanceProfileArn
+
+
+
+

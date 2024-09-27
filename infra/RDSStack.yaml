@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Postgres DB Instance"
+
+Parameters:
+
+  PrivateSubnet1:
+    Type: String
+
+  PrivateSubnet2:
+    Type: String
+
+  RDSSecurityGroupLoomi:
+    Type: String
+
+Resources:
+
+  DBSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties: 
+      DBSubnetGroupDescription: "Subnet group for RDS instance"
+      SubnetIds: 
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  RDSPostgresDB:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      DBInstanceIdentifier: "loomi-postgres-db"
+      DBInstanceClass: "db.t4g.micro"
+      Engine: "postgres"
+      EngineVersion: "16.3"  
+      AllocatedStorage: 20
+      MasterUsername: "loomi"
+      MasterUserPassword: "Loomi1234"
+      DBName: "LoomiDB"
+      # BackupRetentionPeriod: 7  
+      PubliclyAccessible: false
+      MultiAZ: false  
+      # VPCSecurityGroups:
+      #   - !Ref RDSSecurityGroupLoomi
+      DBSubnetGroupName: !Ref DBSubnetGroup
+    DeletionPolicy: Delete
+
+
+    
