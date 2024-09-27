@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Capital One Security Groups Stack"
+
+Parameters:
+  VPCId:
+    Description: The VPC ID to associate with security groups
+    Type: String
+    
+Resources:
+  EC2SecurityGroupLoomi:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPCId
+      GroupDescription: Allow traffic from ALB to your EC2 Instances. 
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALBSecurityGroupLoomi
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref ALBSecurityGroupLoomi
+
+  ALBSecurityGroupLoomi:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPCId
+      GroupDescription: Allow HTTP and HTTPS in us-east-1
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+
+  RDSSecurityGroupLoomi:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPCId
+      GroupDescription: RDS Security Group
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref EC2SecurityGroupLoomi
+
+Outputs:
+
+  EC2SecurityGroupLoomi:
+    Value: !Ref EC2SecurityGroupLoomi
+    Export: 
+      Name: EC2SecurityGroupLoomi
+
+  ALBSecurityGroupLoomi:
+    Value: !Ref ALBSecurityGroupLoomi
+    Export: 
+      Name: ALBSecurityGroupLoomi
+
+  RDSSecurityGroupLoomi:
+    Value: !Ref RDSSecurityGroupLoomi
+    Export: 
+      Name: RDSSecurityGroupLoomi

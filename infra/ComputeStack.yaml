@@ -1,0 +1,196 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Capital One Compute Resources Stack"
+
+Parameters:
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: loomikp
+
+  ImageId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/jammy/stable/current/amd64/hvm/ebs-gp2/ami-id
+    Description: The latest Ubuntu 22.04 LTS AMI Id
+
+  VPCId:
+    Type: String
+
+  PublicSubnet1:
+    Type: String
+
+  PublicSubnet2:
+    Type: String
+
+  EC2SecurityGroup:
+    Type: String
+
+  TargetGroupLoomi:
+    Type: String
+
+  EC2InstanceProfileArn:
+    Type: String
+  
+
+Resources:
+
+  LaunchTemplateLoomi:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: Loomiproject
+      LaunchTemplateData:
+        IamInstanceProfile:
+          Arn: !Ref EC2InstanceProfileArn
+        ImageId: !Ref ImageId
+        InstanceType: t3.micro
+        SecurityGroupIds:
+         - !Ref EC2SecurityGroup
+        KeyName: !Ref KeyName
+        UserData: !Base64 |
+            #!/bin/bash
+            sudo dpkg-reconfigure debconf --frontend=noninteractive
+            export DEBIAN_FRONTEND=noninteractive
+            sudo add-apt-repository universe
+            sudo apt update && apt upgrade -y
+            sudo snap install amazon-ssm-agent --classic
+            sudo apt install -y dos2unix unzip
+            sudo apt-get install -y  default-jdk
+            sudo apt-get install -y apache2
+            sudo apt-get install -y libapache2-mod-jk
+            sudo hostnamectl set-hostname capitalone-dev.autorabit.com
+            sudo mkdir -p  /opt/installations
+            sudo mkdir -p  /home/ubuntu/ARVault
+            sudo mkdir /var/www/html/Web-UI
+            sudo mkdir -p /home/ubuntu/ssl
+            sudo chmod 777 /opt/installations
+            sudo chown ubuntu:ubuntu /opt/installations/
+
+            vol1=`lsblk |grep disk |grep 120G | awk '{print$1}'` 
+            mkfs.ext4 /dev/$vol1
+            uu1=`blkid | grep /dev/$vol1 | awk '{print$2}'` 
+            echo $uu1 /opt/installations  ext4    defaults    0 2 >> /etc/fstab 
+            vol2=`lsblk |grep disk |grep 1000 | awk '{print$1}'` 
+            mkfs.ext4 /dev/$vol2 
+            uu2=`blkid | grep /dev/$vol2 | awk '{print$2}'` 
+            echo $uu2 /home/ubuntu/ARVault  ext4    defaults    0 2 >> /etc/fstab 
+            mount -a 
+            sudo apt  install awscli -y
+            
+            # wget -P /home/ubuntu/downloads/ https://arinstallers.s3.us-west-2.amazonaws.com/vault/server-tomcat.zip
+            # wget -P /home/ubuntu/downloads/ https://arinstallers.s3.us-west-2.amazonaws.com/vault/ssl.zip  
+            # wget -P /home/ubuntu/downloads/ https://arinstallers.s3.us-west-2.amazonaws.com/vault/keys.zip  
+            # wget -P /home/ubuntu/downloads/ https://arinstallers.s3.us-west-2.amazonaws.com/vault/dist.zip  
+            # wget -P /home/ubuntu/downloads/ https://arinstallers.s3.us-west-2.amazonaws.com/vault/ARVault_Properties.zip  
+            # wget -P /home/ubuntu/downloads/ https://arinstallers.s3.us-west-2.amazonaws.com/vault/apache2_config.zip  
+            # unzip /home/ubuntu/downloads/apache2_config.zip -d /home/ubuntu/downloads/
+            # unzip /home/ubuntu/downloads/ARVault_Properties.zip -d /home/ubuntu
+            # unzip /home/ubuntu/downloads/ssl.zip  -d /home/ubuntu/
+            # unzip /home/ubuntu/downloads/ssl.zip  -d /opt/installations
+            # unzip /home/ubuntu/downloads/dist.zip -d /var/www/html/Web-UI/ 
+
+            aws s3 cp s3://avelin-poc/Vaultfiles/keys.zip /home/ubuntu/downloads/
+            aws s3 cp s3://avelin-poc/Vaultfiles/server-tomcat-bkp.zip /home/ubuntu/downloads/
+            aws s3 cp s3://avelin-poc/Vaultfiles/dist.zip /home/ubuntu/downloads/
+            aws s3 cp s3://avelin-poc/Vaultfiles/ARVault.properties /home/ubuntu/downloads/
+            aws s3 cp s3://avelin-poc/Vaultfiles/capitalone-dev.autorabit.com.conf /home/ubuntu/downloads/
+            aws s3 cp s3://avelin-poc/Vaultfiles/Headers.conf /home/ubuntu/downloads/
+            aws s3 cp s3://avelin-poc/Vaultfiles/ssl.zip /home/ubuntu/downloads/
+            unzip /home/ubuntu/downloads/keys.zip -d /home/ubuntu/
+            sudo unzip /home/ubuntu/downloads/dist.zip -d /var/www/html/Web-UI/
+            sudo sed -i 's/vault-perf.autorabit.com/capitalone-dev.autorabit.com/g' /var/www/html/Web-UI/dist/main.*.js
+
+            unzip /home/ubuntu/downloads/server-tomcat-bkp.zip -d /opt/installations
+            cd /opt/installations/
+            mv ./server-tomcat-bkp server-tomcat
+            chmod -R 777 /opt/installations/server-tomcat/bin/*.sh
+            sudo cp /etc/apache2/mods-available/jk.conf /etc/apache2/mods-available/jk.conf-bkp
+            sudo cp /home/ubuntu/downloads/jk.conf /etc/apache2/mods-available/jk.conf
+            sudo cp /home/ubuntu/downloads/workers.properties /etc/apache2/
+            sudo cp /home/ubuntu/downloads/Headers.conf  /etc/apache2/sites-available/
+            sudo cp /home/ubuntu/downloads/capitalone-dev.autorabit.com.conf /etc/apache2/sites-available/
+            cd /etc/apache2/sites-available/ 
+            sudo cp -r /home/ubuntu/downloads/capitalone-dev.autorabit.com.conf .
+            sudo ln -s ../sites-available/capitalone-dev.autorabit.com.conf capitalone-dev.autorabit.com.conf
+
+            source /etc/profile
+            sudo a2enmod rewrite
+            sudo a2enmod headers
+            sudo a2ensite capitalone-dev.autorabit.com.conf
+            sudo service apache2 reload
+            sudo service apache2 restart
+            sudo chown -R ubuntu:ubuntu /opt/installations
+            sudo chown -R ubuntu:ubuntu /home/ubuntu
+            sudo chmod u+x /opt/installations/server-tomcat/bin/*
+            sudo su ubuntu -c /opt/installations/server-tomcat/bin/startup.sh
+            sudo mkdir -p /opt/installations/config
+            sudo mkdir -p /opt/installations/config/Web-UI
+            sudo mkdir -p /opt/installations/config/ARVault_Properties
+            sudo mkdir -p /opt/installations/config/ssl
+            sudo mkdir -p /opt/installations/config/keys
+            sudo mkdir -p /opt/installations/config/dist
+
+            # cp /etc/apache2/sites-available/capitalone-dev.autorabit.com /opt/installations/config/
+            # cp /etc/apache2/sites-available/Headers.conf /opt/installations/config/
+            # cp /etc/apache2/workers.properties /opt/installations/config/
+            # cp /etc/apache2/mods-available/jk.conf /opt/installations/config/
+            # cp -r /home/ubuntu/ssl/*  /opt/installations/config/ssl/
+
+            AWSRegion=$(curl http://169.254.169.254/latest/meta-data/placement/region)  
+            AuroraClusterIdentifier=$(aws rds describe-db-clusters --query 'DBClusters[*].DBClusterIdentifier' --output text --region $AWSRegion)
+            AuroraInstanceIdentifier=$(aws rds describe-db-clusters --db-cluster-identifier $AuroraClusterIdentifier --query 'DBClusters[0].DBClusterMembers[*].DBInstanceIdentifier' --output text --region $AWSRegion)
+            AuroraEndpoint=$(aws rds describe-db-instances --db-instance-identifier $AuroraInstanceIdentifier --query 'DBInstances[0].Endpoint' --output text --region $AWSRegion | cut -f1)
+            User="admin"
+            Passwd="UjTDtdeywOHS35eft0W6"
+            sudo sed -i "s|vault-perf-24-1.cvi58tgaxlrn.us-east-1.rds.amazonaws.com|$AuroraEndpoint|g" /home/ubuntu/downloads/ARVault.properties
+            sudo sed -i "s|vault-perf|capitalone-dev|g" /home/ubuntu/downloads/ARVault.properties
+            sudo apt-get install -y mysql-client-core-8.0
+            mysql -h ${AuroraEndpoint} -u ${User} -p${Passwd} -e "CREATE DATABASE arvault;"
+
+            # sudo sed -i "s|vault-perf-24-1.cvi58tgaxlrn.us-east-1.rds.amazonaws.com|$AuroraEndpoint|g" /opt/installations/config/ARVault_Properties/ARVault.properties
+            # sudo sed -i "s|vault-perf|capitalone-dev|g" /opt/installations/config/ARVault_Properties/ARVault.properties
+            # sudo sed -i "s|vault-perf-24-1.cvi58tgaxlrn.us-east-1.rds.amazonaws.com|$AuroraEndpoint|g" /home/ubuntu/ARVault_Properties/ARVault.properties
+            # sudo sed -i "s|vault-perf|capitalone-dev|g" /home/ubuntu/ARVault_Properties/ARVault.properties
+
+            sudo mkdir /home/ubuntu/ARVault_Properties
+            sudo cp /home/ubuntu/downloads/ARVault.properties /home/ubuntu/ARVault_Properties
+            sudo chown -R ubuntu:ubuntu /home/ubuntu/ARVault_Properties
+            sudo cp -r /home/ubuntu/keys/* /opt/installations/config/keys/
+            sudo cp -r /home/ubuntu/ARVault_Properties/* /opt/installations/config/ARVault_Properties/
+            sudo cp -r /var/www/html/Web-UI/* /opt/installations/config/Web-UI
+            sudo su ubuntu -c /opt/installations/server-tomcat/bin/startup.sh
+
+            # aws s3 cp s3://avelin-poc/Vaultfiles/auroraendpoint.sh /home/ubuntu/downloads/
+            # sudo chmod +x /home/ubuntu/downloads/auroraendpoint.sh
+            # sudo /home/ubuntu/downloads/./auroraendpoint.sh
+
+            sudo a2dissite 000-default.conf
+            sudo systemctl reload apache2
+
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: "Loomiproject"
+
+  AutoScalingGroupCapOne:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      VPCZoneIdentifier: 
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplateLoomi
+        Version: !GetAtt LaunchTemplateLoomi.LatestVersionNumber
+      MinSize: 1
+      MaxSize: 1
+      DesiredCapacity: 1
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      TargetGroupARNs:
+        - !Ref TargetGroupLoomi
+
+# Outputs:
+
+#   # InstanceId:
+#   #   Value: !GetAtt LaunchTemplateLoomi.InstanceId
+#   #   Export:
+#   #     Name: InstanceId

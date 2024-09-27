@@ -1,0 +1,48 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "Aurora Main Cluster"
+
+Parameters:
+
+  PrivateSubnet1:
+    Type: String
+
+  PrivateSubnet2:
+    Type: String
+
+  RDSSecurityGroupLoomi:
+    Type: String
+
+Resources:
+
+  DBSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties: 
+      DBSubnetGroupDescription: "Subnet group for RDS instance"
+      SubnetIds: 
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  RDSPostgresDB:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      DBInstanceIdentifier: "free-tier-postgres-db"
+      DBInstanceClass: "db.t4g.micro"
+      Engine: "postgres"
+      EngineVersion: "16.3"  
+      MasterUsername: "loomi"
+      MasterUserPassword: "Loomi1234"
+      DBName: "LoomiDB"
+      BackupRetentionPeriod: 7  
+      PubliclyAccessible: false
+      MultiAZ: false  
+      StorageEncrypted: false
+      AutoMinorVersionUpgrade: true
+      DeletionPolicy: Snapshot  
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroupLoomi
+      DBSubnetGroupName: !Ref DBSubnetGroup  
+
+Outputs:
+
+  AuroraEndpoint:
+    Value: !GetAtt RDSPostgresDB.Endpoint.Address
