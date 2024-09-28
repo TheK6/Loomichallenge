@@ -18,6 +18,10 @@ Resources:
           ToPort: 80
           SourceSecurityGroupId: !Ref ALBSecurityGroupLoomi
         - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALBSecurityGroupLoomi
+        - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
           CidrIp: 177.212.245.69/32
@@ -28,6 +32,10 @@ Resources:
       VpcId: !Ref VPCId
       GroupDescription: Allow HTTP and HTTPS in us-east-1
       SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80

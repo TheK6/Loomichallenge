@@ -62,8 +62,6 @@ Resources:
             # AuroraClusterIdentifier=$(aws rds describe-db-clusters --query 'DBClusters[*].DBClusterIdentifier' --output text --region $AWSRegion)
             # AuroraInstanceIdentifier=$(aws rds describe-db-clusters --db-cluster-identifier $AuroraClusterIdentifier --query 'DBClusters[0].DBClusterMembers[*].DBInstanceIdentifier' --output text --region $AWSRegion)
             # AuroraEndpoint=$(aws rds describe-db-instances --db-instance-identifier $AuroraInstanceIdentifier --query 'DBInstances[0].Endpoint' --output text --region $AWSRegion | cut -f1)
-            # User="admin"
-            # Passwd="UjTDtdeywOHS35eft0W6"
             # sudo sed -i "s|vault-perf-24-1.cvi58tgaxlrn.us-east-1.rds.amazonaws.com|$AuroraEndpoint|g" /home/ubuntu/downloads/ARVault.properties
             # sudo sed -i "s|vault-perf|capitalone-dev|g" /home/ubuntu/downloads/ARVault.properties
             # sudo apt-get install -y mysql-client-core-8.0
