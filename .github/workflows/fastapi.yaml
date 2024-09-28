@@ -30,7 +30,7 @@ jobs:
     - name: Build, tag, and push docker image to Amazon ECR
       env:
         AWS_REGION: ${{ secrets.AWS_REGION }}
-        REPOSITORY: loomi/fastapi
+        REPOSITORY: fastapi
         IMAGE_TAG: ${{ github.sha }}
       run: |
      
