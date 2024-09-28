@@ -27,12 +27,18 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    - name: Build, tag, and push docker image to Amazon ECR Public
+    - name: Build, tag, and push docker image to Amazon ECR
       env:
-        REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        REGISTRY_ALIAS: my-ecr-public-registry-alias
-        REPOSITORY: my-ecr-public-repo
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+        REPOSITORY: loomi/fastapi
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $REGISTRY/$REGISTRY_ALIAS/$REPOSITORY:$IMAGE_TAG .
-        docker push $REGISTRY/$REGISTRY_ALIAS/$REPOSITORY:$IMAGE_TAG
+     
+        # Build the Docker image
+        docker build -t $REPOSITORY:$IMAGE_TAG .
+        
+        # Tag the Docker image
+        docker tag $REPOSITORY:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPOSITORY:$IMAGE_TAG
+        
+        # Push the Docker image to Amazon ECR
+        docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$REPOSITORY:$IMAGE_TAG
