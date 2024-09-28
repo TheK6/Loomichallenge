@@ -48,10 +48,15 @@ Resources:
             export DEBIAN_FRONTEND=noninteractive
             sudo add-apt-repository universe
             sudo apt update && apt upgrade -y
+            sudo apt  install awscli -y
             sudo snap install amazon-ssm-agent --classic
             sudo apt-get install -y apache2
+            sudo apt-get install -y docker.io
+            sudo systemctl start docker
+            sudo systemctl enable docker
+            sudo usermod -aG docker ubuntu
+
             sudo hostnamectl set-hostname loomi
-            sudo apt  install awscli -y
         
             # AWSRegion=$(curl http://169.254.169.254/latest/meta-data/placement/region)  
             # AuroraClusterIdentifier=$(aws rds describe-db-clusters --query 'DBClusters[*].DBClusterIdentifier' --output text --region $AWSRegion)
