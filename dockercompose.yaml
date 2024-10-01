@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  app:
+    image: your-fastapi-image:latest  # or you can use 'build' to specify a Dockerfile
+    build:
+      context: .  # where your Dockerfile is located
+    container_name: fastapi_app
+    ports:
+      - "8000:8000"  # Exposes port 8000 on the host to 8000 on the container
+    environment:
+      - DB_HOST=loomi-postgres-db.chs64io6cxcv.us-east-2.rds.amazonaws.com
+      - DB_PORT=5432
+      - DB_NAME=loomi-postgres-db
+      - DB_USER=loomi
+      - DB_PASSWORD=Loomi1234
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+    networks:
+      - app-network
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13
+    container_name: db
+    environment:
+      POSTGRES_DB: loomi-postgres-dockerdb
+      POSTGRES_USER: loomi
+      POSTGRES_PASSWORD: Loomi1234
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
